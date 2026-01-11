@@ -1,13 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   LayoutDashboard, Calendar, Users, ListTodo, AlertTriangle, Target,
   DollarSign, TrendingUp, BarChart3, Calculator, Presentation, Settings,
-  Building2, ChevronLeft, ChevronRight, Layers, PieChart, FileSpreadsheet
+  Building2, ChevronLeft, ChevronRight, Layers, PieChart, FileSpreadsheet,
+  Wallet, RotateCcw
 } from 'lucide-react';
 
-// Context Providers
+// Financial Model
+import { FinancialModel, DEFAULT_PARAMETERS, SCENARIO_PRESETS } from './utils/financialModel';
+
+// Context Provider for Launch Control
 import { ProjectProvider, useProject } from './context/ProjectContext';
-import { FinancialProvider, useFinancial } from './context/FinancialContext';
 
 // Launch Components
 import LaunchDashboard from './components/launch/LaunchDashboard';
@@ -31,6 +34,100 @@ import PublicPartnerships from './components/financial/PublicPartnerships';
 // Shared Components
 import ErrorBoundary from './components/shared/ErrorBoundary';
 
+// Public Sector Scenario Presets
+const PUBLIC_SCENARIO_PRESETS = {
+  optimistic: {
+    name: 'Optimistic',
+    description: 'Strong government partnerships, rapid adoption',
+    year1Students: 50000,
+    year5Students: 610000,
+    year10Students: 2200000,
+    pilotMunicipalities: 5,
+    year5Municipalities: 25,
+    year10Municipalities: 120,
+    revenuePerStudentMonth: 250,
+    marginsPublic: 0.40
+  },
+  realistic: {
+    name: 'Realistic',
+    description: 'Moderate government support, steady growth',
+    year1Students: 42500,
+    year5Students: 518500,
+    year10Students: 1870000,
+    pilotMunicipalities: 4,
+    year5Municipalities: 21,
+    year10Municipalities: 102,
+    revenuePerStudentMonth: 212,
+    marginsPublic: 0.35
+  },
+  pessimistic: {
+    name: 'Pessimistic',
+    description: 'Slow adoption, regulatory challenges',
+    year1Students: 35000,
+    year5Students: 427000,
+    year10Students: 1540000,
+    pilotMunicipalities: 3,
+    year5Municipalities: 17,
+    year10Municipalities: 84,
+    revenuePerStudentMonth: 175,
+    marginsPublic: 0.30
+  }
+};
+
+// Function to generate public financial data
+const generatePublicFinancialData = (scenario = 'optimistic') => {
+  const publicParams = {
+    setupFeePerSchool: 50000,
+    technologyLicenseFee: 25000,
+    teacherTrainingFee: 2000,
+    teachersPerSchool: 25,
+    ...PUBLIC_SCENARIO_PRESETS[scenario]
+  };
+
+  const years = [];
+
+  for (let year = 1; year <= 10; year++) {
+    const studentGrowth = Math.min(
+      publicParams.year1Students * Math.pow(year / 1, 1.8),
+      publicParams.year10Students
+    );
+
+    const students = Math.floor(studentGrowth);
+
+    const municipalities = Math.min(
+      publicParams.pilotMunicipalities * Math.pow(year / 1, 1.5),
+      publicParams.year10Municipalities
+    );
+
+    const monthlyRevenue = students * publicParams.revenuePerStudentMonth * 12;
+    const setupRevenue = Math.floor(municipalities * 50) * publicParams.setupFeePerSchool;
+    const technologyRevenue = Math.floor(municipalities) * publicParams.technologyLicenseFee;
+    const trainingRevenue = Math.floor(municipalities * 50 * publicParams.teachersPerSchool) * publicParams.teacherTrainingFee;
+
+    const totalRevenue = monthlyRevenue + setupRevenue + technologyRevenue + trainingRevenue;
+    const costs = totalRevenue * (1 - publicParams.marginsPublic);
+    const ebitda = totalRevenue - costs;
+
+    years.push({
+      year,
+      students,
+      municipalities: Math.floor(municipalities),
+      revenue: {
+        monthly: monthlyRevenue,
+        setup: setupRevenue,
+        technology: technologyRevenue,
+        training: trainingRevenue,
+        total: totalRevenue
+      },
+      costs,
+      ebitda,
+      margin: ebitda / totalRevenue
+    });
+  }
+
+  return years;
+};
+
 // Navigation structure
 const navigationSections = [
   {
@@ -44,13 +141,13 @@ const navigationSections = [
     id: 'financial',
     title: 'Business Plan',
     items: [
-      { id: 'financial-dashboard', label: 'Financial Overview', icon: DollarSign, section: 'financial' },
-      { id: 'cash-flow', label: 'Cash Flow', icon: TrendingUp, section: 'financial' },
-      { id: 'unit-economics', label: 'Unit Economics', icon: Calculator, section: 'financial' },
-      { id: 'consolidated', label: 'Consolidated View', icon: Layers, section: 'financial' },
-      { id: 'parameters', label: 'Model Parameters', icon: Settings, section: 'financial' },
-      { id: 'year-editor', label: 'Year-by-Year Editor', icon: FileSpreadsheet, section: 'financial' },
+      { id: 'financial-dashboard', label: 'Private Sector', icon: DollarSign, section: 'financial' },
       { id: 'public-partnerships', label: 'Public Partnerships', icon: Building2, section: 'financial' },
+      { id: 'consolidated', label: 'Consolidated View', icon: Layers, section: 'financial' },
+      { id: 'year-editor', label: 'Year-by-Year Editor', icon: FileSpreadsheet, section: 'financial' },
+      { id: 'cash-flow', label: 'Cash Flow', icon: Wallet, section: 'financial' },
+      { id: 'unit-economics', label: 'Unit Economics', icon: Calculator, section: 'financial' },
+      { id: 'parameters', label: 'Model Parameters', icon: Settings, section: 'financial' },
       { id: 'presentation', label: 'Presentation Mode', icon: Presentation, section: 'financial' }
     ]
   },
@@ -70,13 +167,7 @@ const navigationSections = [
 ];
 
 // Unified Dashboard Component
-const UnifiedDashboard = () => {
-  const { projectData, calculateOverallProgress, getUpcomingDeadlines } = useProject();
-  const { getFinancialData, currentScenario } = useFinancial();
-
-  const financialData = useMemo(() => getFinancialData(), [getFinancialData]);
-  const overallProgress = calculateOverallProgress();
-  const upcomingDeadlines = getUpcomingDeadlines(14);
+const UnifiedDashboard = ({ financialData, currentScenario, publicModelData, currentPublicScenario, projectData, overallProgress, upcomingDeadlines }) => {
   const daysToLaunch = Math.ceil((new Date('2027-02-01') - new Date()) / (1000 * 60 * 60 * 24));
 
   const formatCurrency = (value) => {
@@ -116,8 +207,18 @@ const UnifiedDashboard = () => {
               <div className="text-xs text-gray-500">AI School Brazil - Command Center</div>
             </div>
           </div>
-          <div className="text-xs text-gray-400">
-            {new Date().toLocaleDateString('pt-BR')}
+          <div className="flex items-center space-x-4">
+            <div className="text-center px-3 py-1 bg-blue-50 rounded-lg">
+              <div className="text-xs text-gray-500">Private</div>
+              <div className="font-semibold text-blue-600 capitalize">{currentScenario}</div>
+            </div>
+            <div className="text-center px-3 py-1 bg-green-50 rounded-lg">
+              <div className="text-xs text-gray-500">Public</div>
+              <div className="font-semibold text-green-600 capitalize">{currentPublicScenario}</div>
+            </div>
+            <div className="text-xs text-gray-400">
+              {new Date().toLocaleDateString('pt-BR')}
+            </div>
           </div>
         </div>
       </div>
@@ -134,7 +235,7 @@ const UnifiedDashboard = () => {
             {formatCurrency(financialData.summary.year10Revenue)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {currentScenario} scenario
+            Private sector ({currentScenario})
           </div>
         </div>
 
@@ -286,23 +387,82 @@ const UnifiedDashboard = () => {
   );
 };
 
-// Main App Content Component
-const AppContent = () => {
+// Main App Content Component (with Launch Context)
+const AppContentWithContext = () => {
+  const { projectData, getUpcomingDeadlines, calculateOverallProgress } = useProject();
+
   const [activeView, setActiveView] = useState('unified-dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { getFinancialData, switchScenario, currentScenario, parameters, updateParameters } = useFinancial();
 
-  const financialData = useMemo(() => getFinancialData(), [getFinancialData]);
+  // Private sector state
+  const [parameters, setParameters] = useState(DEFAULT_PARAMETERS);
+  const [currentScenario, setCurrentScenario] = useState('realistic');
+
+  // Public sector state
+  const [currentPublicScenario, setCurrentPublicScenario] = useState('optimistic');
+  const [publicModelData, setPublicModelData] = useState(() => generatePublicFinancialData('optimistic'));
+
+  // Create financial model and calculations
+  const model = useMemo(() => new FinancialModel(parameters), [parameters]);
+  const financialData = useMemo(() => model.getFinancialSummary(), [model]);
+
+  // Launch data
+  const overallProgress = calculateOverallProgress();
+  const upcomingDeadlines = getUpcomingDeadlines(14);
+
+  // Update public data when scenario changes
+  useEffect(() => {
+    if (!publicModelData || publicModelData.length === 0) {
+      setPublicModelData(generatePublicFinancialData(currentPublicScenario));
+    }
+  }, [currentPublicScenario]);
+
+  const handleParameterChange = (newParams) => {
+    setParameters(prev => ({ ...prev, ...newParams }));
+  };
 
   const handleScenarioChange = (scenarioKey, scenarioParams) => {
-    switchScenario(scenarioKey, scenarioParams);
+    setCurrentScenario(scenarioKey);
+    setParameters(scenarioParams);
+  };
+
+  const handlePublicModelChange = (publicParams, publicData, publicScenario) => {
+    console.log('App received public data:', { publicParams, publicData, publicScenario });
+    setPublicModelData(publicData);
+    if (publicScenario) {
+      setCurrentPublicScenario(publicScenario);
+    }
+  };
+
+  const resetAllToDefault = () => {
+    // Reset private sector to realistic scenario and clear year-by-year overrides
+    const realisticParams = {
+      ...SCENARIO_PRESETS.realistic.parameters,
+      yearlyOverrides: {}
+    };
+    setCurrentScenario('realistic');
+    setParameters(realisticParams);
+
+    // Reset public sector to optimistic scenario
+    setCurrentPublicScenario('optimistic');
+    setPublicModelData(generatePublicFinancialData('optimistic'));
   };
 
   const renderContent = () => {
     switch (activeView) {
       // Overview
       case 'unified-dashboard':
-        return <UnifiedDashboard />;
+        return (
+          <UnifiedDashboard
+            financialData={financialData}
+            currentScenario={currentScenario}
+            publicModelData={publicModelData}
+            currentPublicScenario={currentPublicScenario}
+            projectData={projectData}
+            overallProgress={overallProgress}
+            upcomingDeadlines={upcomingDeadlines}
+          />
+        );
 
       // Financial Views
       case 'financial-dashboard':
@@ -313,33 +473,64 @@ const AppContent = () => {
             currentScenario={currentScenario}
           />
         );
-      case 'cash-flow':
-        return <CashFlow financialData={financialData} />;
-      case 'unit-economics':
-        return <UnitEconomics financialData={financialData} />;
-      case 'consolidated':
-        return <ConsolidatedView financialData={financialData} />;
-      case 'parameters':
+      case 'public-partnerships':
         return (
-          <ParameterControl
-            parameters={parameters}
-            onParameterChange={updateParameters}
+          <PublicPartnerships
+            onPublicModelChange={handlePublicModelChange}
+            initialScenario={currentPublicScenario}
+          />
+        );
+      case 'consolidated':
+        return (
+          <ConsolidatedView
+            privateFinancialData={financialData}
+            publicModelData={publicModelData}
+            currentPrivateScenario={currentScenario}
+            currentPublicScenario={currentPublicScenario}
           />
         );
       case 'year-editor':
         return (
           <YearByYearEditor
+            parameters={parameters}
+            onParameterChange={handleParameterChange}
             financialData={financialData}
-            onUpdateYear={updateParameters}
+            currentScenario={currentScenario}
           />
         );
-      case 'public-partnerships':
-        return <PublicPartnerships financialData={financialData} />;
+      case 'cash-flow':
+        return (
+          <CashFlow
+            financialData={financialData}
+            parameters={parameters}
+            currentScenario={currentScenario}
+            publicModelData={publicModelData}
+            currentPublicScenario={currentPublicScenario}
+          />
+        );
+      case 'unit-economics':
+        return (
+          <UnitEconomics
+            financialData={financialData}
+            parameters={parameters}
+            currentScenario={currentScenario}
+            publicModelData={publicModelData}
+          />
+        );
+      case 'parameters':
+        return (
+          <ParameterControl
+            parameters={parameters}
+            onParameterChange={handleParameterChange}
+          />
+        );
       case 'presentation':
         return (
           <PresentationMode
             financialData={financialData}
-            currentScenario={currentScenario}
+            publicModelData={publicModelData}
+            currentPrivateScenario={currentScenario}
+            currentPublicScenario={currentPublicScenario}
           />
         );
 
@@ -360,8 +551,27 @@ const AppContent = () => {
         return <KPITracker />;
 
       default:
-        return <UnifiedDashboard />;
+        return (
+          <UnifiedDashboard
+            financialData={financialData}
+            currentScenario={currentScenario}
+            publicModelData={publicModelData}
+            currentPublicScenario={currentPublicScenario}
+            projectData={projectData}
+            overallProgress={overallProgress}
+            upcomingDeadlines={upcomingDeadlines}
+          />
+        );
     }
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
   };
 
   return (
@@ -393,8 +603,40 @@ const AppContent = () => {
           )}
         </button>
 
+        {/* Reset Button */}
+        {!sidebarCollapsed && (
+          <div className="p-4 border-b border-gray-200">
+            <button
+              onClick={resetAllToDefault}
+              className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+              title="Reset all to default scenarios"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Reset All</span>
+            </button>
+          </div>
+        )}
+
+        {/* Quick Stats */}
+        {!sidebarCollapsed && (
+          <div className="p-4 border-b border-gray-200 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Private:</span>
+              <span className="font-medium text-blue-600 capitalize">{currentScenario}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Public:</span>
+              <span className="font-medium text-green-600 capitalize">{currentPublicScenario}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">IRR:</span>
+              <span className="font-medium text-purple-600">{(financialData.summary.irr * 100).toFixed(1)}%</span>
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-4rem)]">
+        <nav className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-12rem)]">
           {navigationSections.map((section) => (
             <div key={section.id}>
               {!sidebarCollapsed && (
@@ -447,9 +689,7 @@ const App = () => {
   return (
     <ErrorBoundary>
       <ProjectProvider>
-        <FinancialProvider>
-          <AppContent />
-        </FinancialProvider>
+        <AppContentWithContext />
       </ProjectProvider>
     </ErrorBoundary>
   );
