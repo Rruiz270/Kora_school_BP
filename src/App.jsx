@@ -26,7 +26,7 @@ import FinancialDashboard from './components/financial/FinancialDashboard';
 import CashFlow from './components/financial/CashFlow';
 import UnitEconomics from './components/financial/UnitEconomics';
 import ConsolidatedView from './components/financial/ConsolidatedView';
-import ParameterControl from './components/financial/ParameterControl';
+// ParameterControl is now integrated into FinancialDashboard as a modal
 import YearByYearEditor from './components/financial/YearByYearEditor';
 import PresentationMode from './components/financial/PresentationMode';
 import PublicPartnerships from './components/financial/PublicPartnerships';
@@ -147,7 +147,6 @@ const navigationSections = [
       { id: 'year-editor', label: 'Year-by-Year Editor', icon: FileSpreadsheet, section: 'financial' },
       { id: 'cash-flow', label: 'Cash Flow', icon: Wallet, section: 'financial' },
       { id: 'unit-economics', label: 'Unit Economics', icon: Calculator, section: 'financial' },
-      { id: 'parameters', label: 'Model Parameters', icon: Settings, section: 'financial' },
       { id: 'presentation', label: 'Presentation Mode', icon: Presentation, section: 'financial' }
     ]
   },
@@ -470,6 +469,8 @@ const AppContentWithContext = () => {
           <FinancialDashboard
             financialData={financialData}
             onScenarioChange={handleScenarioChange}
+            onParameterChange={handleParameterChange}
+            parameters={parameters}
             currentScenario={currentScenario}
           />
         );
@@ -515,13 +516,6 @@ const AppContentWithContext = () => {
             parameters={parameters}
             currentScenario={currentScenario}
             publicModelData={publicModelData}
-          />
-        );
-      case 'parameters':
-        return (
-          <ParameterControl
-            parameters={parameters}
-            onParameterChange={handleParameterChange}
           />
         );
       case 'presentation':

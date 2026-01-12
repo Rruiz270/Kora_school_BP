@@ -1,13 +1,133 @@
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, DollarSign, Users, Target, AlertCircle, CheckCircle, BarChart3 } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Target, AlertCircle, CheckCircle, BarChart3, Settings, X, Sliders } from 'lucide-react';
 import { SCENARIO_PRESETS } from '../../utils/financialModel';
 
-const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realistic', className = '' }) => {
+// Parameter Control Modal Component
+const ParameterModal = ({ isOpen, onClose, parameters, onParameterChange }) => {
+  if (!isOpen) return null;
+
+  const handleChange = (key, value) => {
+    const numValue = parseFloat(value) || 0;
+    onParameterChange({ [key]: numValue });
+  };
+
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat('pt-BR').format(num);
+  };
+
+  const parameterGroups = [
+    {
+      title: 'Students & Market',
+      icon: <Users className="w-5 h-5" />,
+      parameters: [
+        { key: 'flagshipStudents', label: 'Flagship Students', value: parameters.flagshipStudents, min: 500, max: 3000, step: 50 },
+        { key: 'franchiseCount', label: 'Total Franchises (Year 10)', value: parameters.franchiseCount, min: 20, max: 100, step: 5 },
+        { key: 'studentsPerFranchise', label: 'Students per Franchise', value: parameters.studentsPerFranchise, min: 1000, max: 2000, step: 100 },
+        { key: 'adoptionStudents', label: 'Adoption Students (Year 10)', value: parameters.adoptionStudents, min: 100000, max: 500000, step: 25000 },
+      ]
+    },
+    {
+      title: 'Pricing & Revenue',
+      icon: <DollarSign className="w-5 h-5" />,
+      parameters: [
+        { key: 'flagshipTuition', label: 'Monthly Tuition (R$)', value: parameters.flagshipTuition, min: 1500, max: 4000, step: 100 },
+        { key: 'adoptionLicenseFee', label: 'Adoption Fee/Student/Month (R$)', value: parameters.adoptionLicenseFee, min: 100, max: 400, step: 25 },
+        { key: 'franchiseRoyaltyRate', label: 'Franchise Royalty Rate (%)', value: parameters.franchiseRoyaltyRate * 100, min: 3, max: 10, step: 0.5, isPercentage: true },
+        { key: 'franchiseFee', label: 'Franchise Fee (R$)', value: parameters.franchiseFee, min: 100000, max: 300000, step: 10000 },
+      ]
+    },
+    {
+      title: 'Growth Rates',
+      icon: <TrendingUp className="w-5 h-5" />,
+      parameters: [
+        { key: 'tuitionIncreaseRate', label: 'Annual Tuition Increase (%)', value: parameters.tuitionIncreaseRate * 100, min: 3, max: 12, step: 0.5, isPercentage: true },
+        { key: 'franchiseGrowthRate', label: 'New Franchises/Year', value: parameters.franchiseGrowthRate, min: 1, max: 10, step: 0.5 },
+        { key: 'adoptionGrowthRate', label: 'Adoption Growth Rate (%)', value: parameters.adoptionGrowthRate * 100, min: 10, max: 80, step: 5, isPercentage: true },
+      ]
+    }
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Settings className="w-6 h-6 text-white" />
+            <h2 className="text-xl font-semibold text-white">Model Parameters</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+          <p className="text-sm text-gray-600 mb-6">
+            Adjust these parameters to fine-tune the financial projections. Changes are applied in real-time.
+          </p>
+
+          <div className="space-y-8">
+            {parameterGroups.map((group, groupIndex) => (
+              <div key={groupIndex} className="bg-gray-50 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-primary-600">{group.icon}</span>
+                  <h3 className="font-semibold text-gray-900">{group.title}</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {group.parameters.map((param) => (
+                    <div key={param.key} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-gray-700">
+                          {param.label}
+                        </label>
+                        <span className="text-sm font-semibold text-primary-600">
+                          {param.isPercentage
+                            ? `${param.value.toFixed(1)}%`
+                            : formatNumber(param.value)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={param.min}
+                        max={param.max}
+                        step={param.step}
+                        value={param.value}
+                        onChange={(e) => {
+                          const newValue = param.isPercentage
+                            ? parseFloat(e.target.value) / 100
+                            : parseFloat(e.target.value);
+                          handleChange(param.key, newValue);
+                        }}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-600"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>{param.isPercentage ? `${param.min}%` : formatNumber(param.min)}</span>
+                        <span>{param.isPercentage ? `${param.max}%` : formatNumber(param.max)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Dashboard = ({ financialData, onScenarioChange, onParameterChange, parameters, currentScenario = 'realistic', className = '' }) => {
   const [selectedYear, setSelectedYear] = useState(10);
-  
+  const [showParameters, setShowParameters] = useState(false);
+
   const { projection, summary } = financialData;
-  
+
   // Chart data preparation
   const revenueChartData = useMemo(() => {
     return projection.slice(1).map(year => ({
@@ -33,7 +153,7 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
   }, [projection]);
 
   const selectedYearData = projection[selectedYear];
-  
+
   const revenueComposition = [
     { name: 'Adoption Licensing', value: selectedYearData.revenue.adoption, color: '#3b82f6' },
     { name: 'Kit Sales', value: selectedYearData.revenue.kits, color: '#10b981' },
@@ -107,11 +227,24 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
               <div className="text-xs text-gray-500">AI School Brazil - Private Sector Dashboard</div>
             </div>
           </div>
-          <div className="text-xs text-gray-400">
-            {new Date().toLocaleDateString('pt-BR')}
+          <div className="flex items-center gap-4">
+            {/* Model Parameters Button */}
+            {parameters && onParameterChange && (
+              <button
+                onClick={() => setShowParameters(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+              >
+                <Sliders className="w-4 h-4" />
+                <span>Model Parameters</span>
+              </button>
+            )}
+            <div className="text-xs text-gray-400">
+              {new Date().toLocaleDateString('pt-BR')}
+            </div>
           </div>
         </div>
       </div>
+
       {/* Scenario Selection */}
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
@@ -123,7 +256,7 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
             Switch between different business projections
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Object.entries(SCENARIO_PRESETS).map(([key, scenario]) => (
             <button
@@ -150,7 +283,7 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
               }`}>
                 {scenario.description}
               </p>
-              
+
               {/* Quick preview of key metrics */}
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -180,12 +313,12 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
                 <span className={kpi.color}>{kpi.icon}</span>
               </div>
             </div>
-            
+
             {/* Main value prominently displayed */}
             <div className="mb-2">
               <p className="text-3xl font-bold text-gray-900">{kpi.value}</p>
             </div>
-            
+
             {/* Additional info */}
             <div>
               <p className="text-sm text-gray-600">{kpi.change}</p>
@@ -258,8 +391,8 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Revenue Composition</h3>
-            <select 
-              value={selectedYear} 
+            <select
+              value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
               className="border border-gray-300 rounded-md px-3 py-1 text-sm"
             >
@@ -313,7 +446,7 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
               <span className="text-gray-700">Initial Investment</span>
               <span className="font-semibold">{formatCurrency(summary.capexScenario.initialCapex)}</span>
             </div>
-            
+
             {/* Break-even indicator */}
             <div className="pt-4 border-t border-gray-200">
               <div className="flex items-center gap-2">
@@ -415,6 +548,16 @@ const Dashboard = ({ financialData, onScenarioChange, currentScenario = 'realist
           </table>
         </div>
       </div>
+
+      {/* Parameter Modal */}
+      {parameters && onParameterChange && (
+        <ParameterModal
+          isOpen={showParameters}
+          onClose={() => setShowParameters(false)}
+          parameters={parameters}
+          onParameterChange={onParameterChange}
+        />
+      )}
     </div>
   );
 };
