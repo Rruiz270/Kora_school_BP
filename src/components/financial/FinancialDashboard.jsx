@@ -4,7 +4,7 @@ import { TrendingUp, DollarSign, Users, Target, AlertCircle, CheckCircle, BarCha
 import { SCENARIO_PRESETS } from '../../utils/financialModel';
 
 // Parameter Control Modal Component
-const ParameterModal = ({ isOpen, onClose, parameters, onParameterChange }) => {
+const ParameterModal = ({ isOpen, onClose, parameters, onParameterChange, onScenarioChange, currentScenario }) => {
   if (!isOpen) return null;
 
   const handleChange = (key, value) => {
@@ -67,9 +67,45 @@ const ParameterModal = ({ isOpen, onClose, parameters, onParameterChange }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-          <p className="text-sm text-gray-600 mb-6">
-            Adjust these parameters to fine-tune the financial projections. Changes are applied in real-time.
-          </p>
+          {/* Scenario Selector */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Scenario Selection</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {Object.entries(SCENARIO_PRESETS).map(([key, scenario]) => (
+                <button
+                  key={key}
+                  onClick={() => onScenarioChange && onScenarioChange(key, scenario.parameters)}
+                  className={`p-3 rounded-lg border-2 transition-all text-left ${
+                    currentScenario === key
+                      ? 'border-primary-500 bg-primary-50 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <h4 className={`font-semibold text-sm ${
+                      currentScenario === key ? 'text-primary-900' : 'text-gray-900'
+                    }`}>
+                      {scenario.name}
+                    </h4>
+                    {currentScenario === key && (
+                      <CheckCircle className="w-4 h-4 text-primary-600" />
+                    )}
+                  </div>
+                  <p className={`text-xs ${
+                    currentScenario === key ? 'text-primary-700' : 'text-gray-500'
+                  }`}>
+                    {scenario.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6">
+            <p className="text-sm text-gray-600 mb-6">
+              Fine-tune individual parameters below. Changes are applied in real-time.
+            </p>
+          </div>
 
           <div className="space-y-8">
             {parameterGroups.map((group, groupIndex) => (
@@ -556,6 +592,8 @@ const Dashboard = ({ financialData, onScenarioChange, onParameterChange, paramet
           onClose={() => setShowParameters(false)}
           parameters={parameters}
           onParameterChange={onParameterChange}
+          onScenarioChange={onScenarioChange}
+          currentScenario={currentScenario}
         />
       )}
     </div>
