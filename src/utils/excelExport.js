@@ -494,7 +494,11 @@ export const generateCustomReport = (
   currentPublicScenario,
   reportConfig
 ) => {
-  const { yearFrom, yearTo, categories, variables } = reportConfig;
+  const { yearFrom, yearTo, categories, variables, privateScenario, publicScenario } = reportConfig;
+
+  // Use scenario from report config if provided, otherwise use current
+  const effectivePrivateScenario = privateScenario || currentScenario;
+  const effectivePublicScenario = publicScenario || currentPublicScenario;
   const wb = XLSX.utils.book_new();
 
   // Filter projection data by year range
@@ -509,7 +513,7 @@ export const generateCustomReport = (
   if (categories.privatePlan && variables.privatePlan) {
     const data = [
       ['KORA SCHOOL - PRIVATE SECTOR CUSTOM REPORT'],
-      [`Scenario: ${currentScenario.toUpperCase()}`],
+      [`Scenario: ${effectivePrivateScenario.toUpperCase()}`],
       [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
       [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
       []
@@ -654,11 +658,153 @@ export const generateCustomReport = (
     XLSX.utils.book_append_sheet(wb, ws, 'Private Plan');
   }
 
+  // Generate Year-by-Year Detailed Sheet
+  if (categories.yearByYear && variables.yearByYear) {
+    const data = [
+      ['KORA SCHOOL - YEAR-BY-YEAR DETAILED EXPENSES & SALARIES'],
+      [`Scenario: ${effectivePrivateScenario.toUpperCase()}`],
+      [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
+      [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
+      []
+    ];
+
+    const projection = filterByYearRange(financialData.projection);
+    const vars = variables.yearByYear;
+
+    // Salaries section
+    if (vars.salaries && Object.values(vars.salaries).some(Boolean)) {
+      data.push(['SALARIES & STAFF COSTS']);
+      const headers = ['Year'];
+      const salaryVars = vars.salaries;
+      if (salaryVars.staffCorporate) headers.push('Staff Corporate');
+      if (salaryVars.staffFlagship) headers.push('Staff Flagship');
+      if (salaryVars.staffFranchiseSupport) headers.push('Staff Franchise Support');
+      if (salaryVars.staffAdoptionSupport) headers.push('Staff Adoption Support');
+      if (salaryVars.teacherTraining) headers.push('Teacher Training');
+      if (salaryVars.totalStaffCosts) headers.push('Total Staff Costs');
+      data.push(headers);
+
+      projection.forEach(year => {
+        const totalStaff = year.costs.staffCorporate + year.costs.staffFlagship +
+                          year.costs.staffFranchiseSupport + year.costs.staffAdoptionSupport +
+                          year.costs.teacherTraining;
+        const row = [`Year ${year.year}`];
+        if (salaryVars.staffCorporate) row.push(formatCurrency(year.costs.staffCorporate));
+        if (salaryVars.staffFlagship) row.push(formatCurrency(year.costs.staffFlagship));
+        if (salaryVars.staffFranchiseSupport) row.push(formatCurrency(year.costs.staffFranchiseSupport));
+        if (salaryVars.staffAdoptionSupport) row.push(formatCurrency(year.costs.staffAdoptionSupport));
+        if (salaryVars.teacherTraining) row.push(formatCurrency(year.costs.teacherTraining));
+        if (salaryVars.totalStaffCosts) row.push(formatCurrency(totalStaff));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Operational Expenses section
+    if (vars.operationalExpenses && Object.values(vars.operationalExpenses).some(Boolean)) {
+      data.push(['OPERATIONAL EXPENSES']);
+      const headers = ['Year'];
+      const opVars = vars.operationalExpenses;
+      if (opVars.technologyOpex) headers.push('Technology OpEx');
+      if (opVars.marketing) headers.push('Marketing');
+      if (opVars.facilities) headers.push('Facilities');
+      if (opVars.curriculum) headers.push('Curriculum');
+      if (opVars.studentSupport) headers.push('Student Support');
+      if (opVars.qualityAssurance) headers.push('Quality Assurance');
+      if (opVars.regulatoryCompliance) headers.push('Regulatory');
+      if (opVars.dataManagement) headers.push('Data Management');
+      if (opVars.parentEngagement) headers.push('Parent Engagement');
+      data.push(headers);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (opVars.technologyOpex) row.push(formatCurrency(year.costs.technologyOpex));
+        if (opVars.marketing) row.push(formatCurrency(year.costs.marketing));
+        if (opVars.facilities) row.push(formatCurrency(year.costs.facilities));
+        if (opVars.curriculum) row.push(formatCurrency(year.costs.curriculum));
+        if (opVars.studentSupport) row.push(formatCurrency(year.costs.studentSupport));
+        if (opVars.qualityAssurance) row.push(formatCurrency(year.costs.qualityAssurance));
+        if (opVars.regulatoryCompliance) row.push(formatCurrency(year.costs.regulatoryCompliance));
+        if (opVars.dataManagement) row.push(formatCurrency(year.costs.dataManagement));
+        if (opVars.parentEngagement) row.push(formatCurrency(year.costs.parentEngagement));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Business Expenses section
+    if (vars.businessExpenses && Object.values(vars.businessExpenses).some(Boolean)) {
+      data.push(['BUSINESS EXPENSES']);
+      const headers = ['Year'];
+      const bizVars = vars.businessExpenses;
+      if (bizVars.badDebt) headers.push('Bad Debt (2%)');
+      if (bizVars.paymentProcessing) headers.push('Payment Processing (2.5%)');
+      if (bizVars.platformRD) headers.push('Platform R&D (6%)');
+      if (bizVars.contentDevelopment) headers.push('Content Dev (4%)');
+      if (bizVars.legal) headers.push('Legal & Compliance');
+      if (bizVars.insurance) headers.push('Insurance');
+      if (bizVars.travel) headers.push('Travel');
+      if (bizVars.workingCapital) headers.push('Working Capital');
+      if (bizVars.contingency) headers.push('Contingency');
+      data.push(headers);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (bizVars.badDebt) row.push(formatCurrency(year.costs.badDebt));
+        if (bizVars.paymentProcessing) row.push(formatCurrency(year.costs.paymentProcessing));
+        if (bizVars.platformRD) row.push(formatCurrency(year.costs.platformRD));
+        if (bizVars.contentDevelopment) row.push(formatCurrency(year.costs.contentDevelopment));
+        if (bizVars.legal) row.push(formatCurrency(year.costs.legal));
+        if (bizVars.insurance) row.push(formatCurrency(year.costs.insurance));
+        if (bizVars.travel) row.push(formatCurrency(year.costs.travel));
+        if (bizVars.workingCapital) row.push(formatCurrency(year.costs.workingCapital));
+        if (bizVars.contingency) row.push(formatCurrency(year.costs.contingency));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // All Expenses Summary
+    if (vars.allExpensesSummary && Object.values(vars.allExpensesSummary).some(Boolean)) {
+      data.push(['ALL EXPENSES SUMMARY']);
+      const headers = ['Year'];
+      const sumVars = vars.allExpensesSummary;
+      if (sumVars.totalSalaries) headers.push('Total Salaries');
+      if (sumVars.totalOperational) headers.push('Total Operational');
+      if (sumVars.totalBusiness) headers.push('Total Business');
+      if (sumVars.grandTotalExpenses) headers.push('Grand Total');
+      data.push(headers);
+
+      projection.forEach(year => {
+        const totalSalaries = year.costs.staffCorporate + year.costs.staffFlagship +
+                             year.costs.staffFranchiseSupport + year.costs.staffAdoptionSupport +
+                             year.costs.teacherTraining;
+        const totalOperational = year.costs.technologyOpex + year.costs.marketing + year.costs.facilities +
+                                year.costs.curriculum + year.costs.studentSupport + year.costs.qualityAssurance +
+                                year.costs.regulatoryCompliance + year.costs.dataManagement + year.costs.parentEngagement;
+        const totalBusiness = year.costs.badDebt + year.costs.paymentProcessing + year.costs.platformRD +
+                             year.costs.contentDevelopment + year.costs.legal + year.costs.insurance +
+                             year.costs.travel + year.costs.workingCapital + year.costs.contingency;
+
+        const row = [`Year ${year.year}`];
+        if (sumVars.totalSalaries) row.push(formatCurrency(totalSalaries));
+        if (sumVars.totalOperational) row.push(formatCurrency(totalOperational));
+        if (sumVars.totalBusiness) row.push(formatCurrency(totalBusiness));
+        if (sumVars.grandTotalExpenses) row.push(formatCurrency(year.costs.total));
+        data.push(row);
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = Array(15).fill({ wch: 20 });
+    XLSX.utils.book_append_sheet(wb, ws, 'Year-by-Year Details');
+  }
+
   // Generate Public Partnerships Custom Sheet
   if (categories.publicPartnerships && variables.publicPartnerships && publicModelData?.length > 0) {
     const data = [
       ['KORA SCHOOL - PUBLIC PARTNERSHIPS CUSTOM REPORT'],
-      [`Scenario: ${currentPublicScenario.toUpperCase()}`],
+      [`Scenario: ${effectivePublicScenario.toUpperCase()}`],
       [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
       [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
       []
@@ -739,7 +885,7 @@ export const generateCustomReport = (
   if (categories.consolidated && variables.consolidated) {
     const data = [
       ['KORA SCHOOL - CONSOLIDATED CUSTOM REPORT'],
-      [`Private: ${currentScenario.toUpperCase()} | Public: ${currentPublicScenario.toUpperCase()}`],
+      [`Private: ${effectivePrivateScenario.toUpperCase()} | Public: ${effectivePublicScenario.toUpperCase()}`],
       [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
       [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
       []
@@ -788,7 +934,7 @@ export const generateCustomReport = (
   if (categories.cashFlow && variables.cashFlow) {
     const data = [
       ['KORA SCHOOL - CASH FLOW CUSTOM REPORT'],
-      [`Private: ${currentScenario.toUpperCase()} | Public: ${currentPublicScenario.toUpperCase()}`],
+      [`Private: ${effectivePrivateScenario.toUpperCase()} | Public: ${effectivePublicScenario.toUpperCase()}`],
       [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
       [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
       []
@@ -824,6 +970,53 @@ export const generateCustomReport = (
         if (pvars.privateCapex) row.push(formatCurrency(year.capex || 0));
         if (pvars.privateFcf) row.push(formatCurrency(year.freeCashFlow || 0));
         if (pvars.privateCumulativeFcf) row.push(formatCurrency(cumulativeFCF));
+        data.push(row);
+      }
+      data.push([]);
+    }
+
+    // Detailed Expense Breakdown
+    if (vars.detailedExpenses && Object.values(vars.detailedExpenses).some(Boolean)) {
+      data.push(['DETAILED EXPENSE BREAKDOWN']);
+      const headers = ['Year'];
+      const expVars = vars.detailedExpenses;
+      if (expVars.expStaffTotal) headers.push('Total Staff');
+      if (expVars.expTechnology) headers.push('Technology');
+      if (expVars.expMarketing) headers.push('Marketing');
+      if (expVars.expFacilities) headers.push('Facilities');
+      if (expVars.expEducational) headers.push('Educational');
+      if (expVars.expOperational) headers.push('Operational');
+      if (expVars.expBusiness) headers.push('Business');
+      if (expVars.expFinancial) headers.push('Financial');
+      if (expVars.expRD) headers.push('R&D + Content');
+      data.push(headers);
+
+      for (let i = yearFrom; i <= yearTo; i++) {
+        const year = financialData.projection[i] || { costs: {} };
+        const costs = year.costs || {};
+
+        const totalStaff = (costs.staffCorporate || 0) + (costs.staffFlagship || 0) +
+                          (costs.staffFranchiseSupport || 0) + (costs.staffAdoptionSupport || 0) +
+                          (costs.teacherTraining || 0);
+        const educational = (costs.curriculum || 0) + (costs.teacherTraining || 0);
+        const operational = (costs.studentSupport || 0) + (costs.qualityAssurance || 0) +
+                           (costs.regulatoryCompliance || 0) + (costs.dataManagement || 0) +
+                           (costs.parentEngagement || 0);
+        const business = (costs.legal || 0) + (costs.insurance || 0) + (costs.travel || 0) +
+                        (costs.workingCapital || 0) + (costs.contingency || 0);
+        const financial = (costs.badDebt || 0) + (costs.paymentProcessing || 0);
+        const rd = (costs.platformRD || 0) + (costs.contentDevelopment || 0);
+
+        const row = [`Year ${i}`];
+        if (expVars.expStaffTotal) row.push(formatCurrency(totalStaff));
+        if (expVars.expTechnology) row.push(formatCurrency(costs.technologyOpex || 0));
+        if (expVars.expMarketing) row.push(formatCurrency(costs.marketing || 0));
+        if (expVars.expFacilities) row.push(formatCurrency(costs.facilities || 0));
+        if (expVars.expEducational) row.push(formatCurrency(educational));
+        if (expVars.expOperational) row.push(formatCurrency(operational));
+        if (expVars.expBusiness) row.push(formatCurrency(business));
+        if (expVars.expFinancial) row.push(formatCurrency(financial));
+        if (expVars.expRD) row.push(formatCurrency(rd));
         data.push(row);
       }
       data.push([]);

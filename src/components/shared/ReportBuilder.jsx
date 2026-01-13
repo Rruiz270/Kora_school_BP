@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FileSpreadsheet, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { X, FileSpreadsheet, ChevronDown, ChevronRight } from 'lucide-react';
 
 // Report categories and their available variables
 const REPORT_CATEGORIES = {
@@ -20,17 +20,12 @@ const REPORT_CATEGORIES = {
         ]
       },
       costs: {
-        name: 'Costs',
+        name: 'Operating Costs',
         variables: [
           { id: 'technologyOpex', name: 'Technology OpEx' },
           { id: 'marketing', name: 'Marketing' },
-          { id: 'staffCorporate', name: 'Staff Corporate' },
-          { id: 'staffFlagship', name: 'Staff Flagship' },
-          { id: 'staffFranchiseSupport', name: 'Staff Franchise Support' },
-          { id: 'staffAdoptionSupport', name: 'Staff Adoption Support' },
           { id: 'facilities', name: 'Facilities' },
           { id: 'curriculum', name: 'Curriculum' },
-          { id: 'teacherTraining', name: 'Teacher Training' },
           { id: 'totalCosts', name: 'Total Costs' }
         ]
       },
@@ -61,6 +56,60 @@ const REPORT_CATEGORIES = {
           { id: 'tuition', name: 'Monthly Tuition' },
           { id: 'adoptionFee', name: 'Adoption Fee' },
           { id: 'kitCost', name: 'Kit Cost' }
+        ]
+      }
+    }
+  },
+  yearByYear: {
+    name: 'Year-by-Year Details',
+    description: 'Detailed breakdown of all expenses and salaries',
+    sections: {
+      salaries: {
+        name: 'Salaries & Staff Costs',
+        variables: [
+          { id: 'staffCorporate', name: 'Staff Corporate' },
+          { id: 'staffFlagship', name: 'Staff Flagship' },
+          { id: 'staffFranchiseSupport', name: 'Staff Franchise Support' },
+          { id: 'staffAdoptionSupport', name: 'Staff Adoption Support' },
+          { id: 'teacherTraining', name: 'Teacher Training' },
+          { id: 'totalStaffCosts', name: 'Total Staff Costs' }
+        ]
+      },
+      operationalExpenses: {
+        name: 'Operational Expenses',
+        variables: [
+          { id: 'technologyOpex', name: 'Technology OpEx' },
+          { id: 'marketing', name: 'Marketing' },
+          { id: 'facilities', name: 'Facilities' },
+          { id: 'curriculum', name: 'Curriculum Materials' },
+          { id: 'studentSupport', name: 'Student Support Services' },
+          { id: 'qualityAssurance', name: 'Quality Assurance' },
+          { id: 'regulatoryCompliance', name: 'Regulatory Compliance' },
+          { id: 'dataManagement', name: 'Data Management' },
+          { id: 'parentEngagement', name: 'Parent Engagement' }
+        ]
+      },
+      businessExpenses: {
+        name: 'Business Expenses',
+        variables: [
+          { id: 'badDebt', name: 'Bad Debt (2%)' },
+          { id: 'paymentProcessing', name: 'Payment Processing (2.5%)' },
+          { id: 'platformRD', name: 'Platform R&D (6%)' },
+          { id: 'contentDevelopment', name: 'Content Development (4%)' },
+          { id: 'legal', name: 'Legal & Compliance' },
+          { id: 'insurance', name: 'Insurance' },
+          { id: 'travel', name: 'Travel' },
+          { id: 'workingCapital', name: 'Working Capital' },
+          { id: 'contingency', name: 'Contingency' }
+        ]
+      },
+      allExpensesSummary: {
+        name: 'All Expenses Summary',
+        variables: [
+          { id: 'totalSalaries', name: 'Total Salaries' },
+          { id: 'totalOperational', name: 'Total Operational' },
+          { id: 'totalBusiness', name: 'Total Business Expenses' },
+          { id: 'grandTotalExpenses', name: 'Grand Total Expenses' }
         ]
       }
     }
@@ -119,7 +168,7 @@ const REPORT_CATEGORIES = {
   },
   cashFlow: {
     name: 'Cash Flow',
-    description: 'Cash flow analysis and projections',
+    description: 'Cash flow analysis with detailed expenses',
     sections: {
       privateCashFlow: {
         name: 'Private Cash Flow',
@@ -132,6 +181,20 @@ const REPORT_CATEGORIES = {
           { id: 'privateCapex', name: 'CAPEX' },
           { id: 'privateFcf', name: 'Free Cash Flow' },
           { id: 'privateCumulativeFcf', name: 'Cumulative FCF' }
+        ]
+      },
+      detailedExpenses: {
+        name: 'Detailed Expense Breakdown',
+        variables: [
+          { id: 'expStaffTotal', name: 'Total Staff Costs' },
+          { id: 'expTechnology', name: 'Technology' },
+          { id: 'expMarketing', name: 'Marketing' },
+          { id: 'expFacilities', name: 'Facilities' },
+          { id: 'expEducational', name: 'Educational (Curriculum + Training)' },
+          { id: 'expOperational', name: 'Operational (Support + QA)' },
+          { id: 'expBusiness', name: 'Business (Legal + Insurance + Travel)' },
+          { id: 'expFinancial', name: 'Financial (Bad Debt + Processing)' },
+          { id: 'expRD', name: 'R&D + Content Development' }
         ]
       },
       publicCashFlow: {
@@ -164,23 +227,31 @@ const REPORT_CATEGORIES = {
 };
 
 const ReportBuilder = ({ isOpen, onClose, onGenerateReport }) => {
+  // Scenario selection
+  const [privateScenario, setPrivateScenario] = useState('realistic');
+  const [publicScenario, setPublicScenario] = useState('optimistic');
+
+  // Date range
   const [yearFrom, setYearFrom] = useState(1);
   const [yearTo, setYearTo] = useState(10);
+
+  // Categories
   const [selectedCategories, setSelectedCategories] = useState({
     privatePlan: true,
+    yearByYear: true,
     publicPartnerships: true,
     consolidated: true,
     cashFlow: true
   });
   const [expandedCategories, setExpandedCategories] = useState({
-    privatePlan: true,
+    privatePlan: false,
+    yearByYear: true,
     publicPartnerships: false,
     consolidated: false,
     cashFlow: false
   });
   const [expandedSections, setExpandedSections] = useState({});
   const [selectedVariables, setSelectedVariables] = useState(() => {
-    // Initialize all variables as selected
     const initial = {};
     Object.entries(REPORT_CATEGORIES).forEach(([catKey, category]) => {
       initial[catKey] = {};
@@ -263,6 +334,8 @@ const ReportBuilder = ({ isOpen, onClose, onGenerateReport }) => {
 
   const handleGenerateReport = () => {
     const reportConfig = {
+      privateScenario,
+      publicScenario,
       yearFrom,
       yearTo,
       categories: selectedCategories,
@@ -281,6 +354,12 @@ const ReportBuilder = ({ isOpen, onClose, onGenerateReport }) => {
     return REPORT_CATEGORIES[categoryKey].sections[sectionKey].variables.length;
   };
 
+  const scenarioButtons = [
+    { id: 'pessimistic', label: 'Pessimistic', color: 'red' },
+    { id: 'realistic', label: 'Realistic', color: 'blue' },
+    { id: 'optimistic', label: 'Optimistic', color: 'green' }
+  ];
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -290,7 +369,7 @@ const ReportBuilder = ({ isOpen, onClose, onGenerateReport }) => {
             <FileSpreadsheet className="w-6 h-6 text-white" />
             <div>
               <h2 className="text-xl font-bold text-white">Custom Report Builder</h2>
-              <p className="text-blue-100 text-sm">Select date range and variables to export</p>
+              <p className="text-blue-100 text-sm">Select scenarios, date range and variables to export</p>
             </div>
           </div>
           <button
@@ -303,6 +382,56 @@ const ReportBuilder = ({ isOpen, onClose, onGenerateReport }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+          {/* Scenario Selection */}
+          <div className="mb-6 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">Select Scenarios</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Private Sector Scenario */}
+              <div>
+                <label className="text-sm text-gray-600 mb-2 block">Private Sector:</label>
+                <div className="flex space-x-2">
+                  {scenarioButtons.map(scenario => (
+                    <button
+                      key={`private-${scenario.id}`}
+                      onClick={() => setPrivateScenario(scenario.id)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        privateScenario === scenario.id
+                          ? scenario.color === 'red' ? 'bg-red-600 text-white shadow-lg' :
+                            scenario.color === 'blue' ? 'bg-blue-600 text-white shadow-lg' :
+                            'bg-green-600 text-white shadow-lg'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {scenario.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Public Sector Scenario */}
+              <div>
+                <label className="text-sm text-gray-600 mb-2 block">Public Sector:</label>
+                <div className="flex space-x-2">
+                  {scenarioButtons.map(scenario => (
+                    <button
+                      key={`public-${scenario.id}`}
+                      onClick={() => setPublicScenario(scenario.id)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        publicScenario === scenario.id
+                          ? scenario.color === 'red' ? 'bg-red-600 text-white shadow-lg' :
+                            scenario.color === 'blue' ? 'bg-blue-600 text-white shadow-lg' :
+                            'bg-green-600 text-white shadow-lg'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {scenario.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Date Range Selection */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Date Range (Years)</h3>
@@ -465,7 +594,9 @@ const ReportBuilder = ({ isOpen, onClose, onGenerateReport }) => {
           <div className="text-sm text-gray-600">
             <span className="font-medium">
               {Object.values(selectedCategories).filter(Boolean).length}
-            </span> categories selected
+            </span> categories selected |
+            <span className="ml-2 text-blue-600 font-medium">{privateScenario}</span> (Private) |
+            <span className="ml-2 text-green-600 font-medium">{publicScenario}</span> (Public)
           </div>
           <div className="flex items-center space-x-3">
             <button
