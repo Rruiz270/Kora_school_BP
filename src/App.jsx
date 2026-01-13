@@ -3,11 +3,12 @@ import {
   LayoutDashboard, Calendar, Users, ListTodo, AlertTriangle, Target,
   DollarSign, TrendingUp, BarChart3, Calculator, Presentation, Settings,
   Building2, ChevronLeft, ChevronRight, Layers, PieChart, FileSpreadsheet,
-  Wallet, RotateCcw
+  Wallet, RotateCcw, Download
 } from 'lucide-react';
 
 // Financial Model
 import { FinancialModel, DEFAULT_PARAMETERS, SCENARIO_PRESETS } from './utils/financialModel';
+import { exportFinancialPlanToExcel } from './utils/excelExport';
 
 // Context Provider for Launch Control
 import { ProjectProvider, useProject } from './context/ProjectContext';
@@ -447,6 +448,22 @@ const AppContentWithContext = () => {
     setPublicModelData(generatePublicFinancialData('optimistic'));
   };
 
+  const handleExportToExcel = () => {
+    try {
+      const filename = exportFinancialPlanToExcel(
+        financialData,
+        parameters,
+        currentScenario,
+        publicModelData,
+        currentPublicScenario
+      );
+      console.log(`Exported to: ${filename}`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export. Please try again.');
+    }
+  };
+
   const renderContent = () => {
     switch (activeView) {
       // Overview
@@ -597,9 +614,17 @@ const AppContentWithContext = () => {
           )}
         </button>
 
-        {/* Reset Button */}
+        {/* Action Buttons */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-gray-200 space-y-2">
+            <button
+              onClick={handleExportToExcel}
+              className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+              title="Export financial plan to Excel"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export to Excel</span>
+            </button>
             <button
               onClick={resetAllToDefault}
               className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
