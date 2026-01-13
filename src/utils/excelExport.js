@@ -485,4 +485,424 @@ export const exportFinancialPlanToExcel = (
   return filename;
 };
 
+// Custom Report Generation based on user selections
+export const generateCustomReport = (
+  financialData,
+  parameters,
+  currentScenario,
+  publicModelData,
+  currentPublicScenario,
+  reportConfig
+) => {
+  const { yearFrom, yearTo, categories, variables } = reportConfig;
+  const wb = XLSX.utils.book_new();
+
+  // Filter projection data by year range
+  const filterByYearRange = (data, yearOffset = 0) => {
+    return data.filter((item, index) => {
+      const year = item.year !== undefined ? item.year : index + yearOffset;
+      return year >= yearFrom && year <= yearTo;
+    });
+  };
+
+  // Generate Private Plan Custom Sheet
+  if (categories.privatePlan && variables.privatePlan) {
+    const data = [
+      ['KORA SCHOOL - PRIVATE SECTOR CUSTOM REPORT'],
+      [`Scenario: ${currentScenario.toUpperCase()}`],
+      [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
+      [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
+      []
+    ];
+
+    const projection = filterByYearRange(financialData.projection);
+    const vars = variables.privatePlan;
+
+    // Revenue section
+    if (vars.revenue && Object.values(vars.revenue).some(Boolean)) {
+      data.push(['REVENUE']);
+      const revenueHeaders = ['Year'];
+      const revenueVars = vars.revenue;
+      if (revenueVars.flagship) revenueHeaders.push('Flagship Revenue');
+      if (revenueVars.franchiseRoyalty) revenueHeaders.push('Franchise Royalty');
+      if (revenueVars.franchiseFees) revenueHeaders.push('Franchise Fees');
+      if (revenueVars.franchiseMarketing) revenueHeaders.push('Franchise Marketing');
+      if (revenueVars.adoption) revenueHeaders.push('Adoption Revenue');
+      if (revenueVars.kits) revenueHeaders.push('Kit Revenue');
+      if (revenueVars.totalRevenue) revenueHeaders.push('Total Revenue');
+      data.push(revenueHeaders);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (revenueVars.flagship) row.push(formatCurrency(year.revenue.flagship));
+        if (revenueVars.franchiseRoyalty) row.push(formatCurrency(year.revenue.franchiseRoyalty));
+        if (revenueVars.franchiseFees) row.push(formatCurrency(year.revenue.franchiseFees));
+        if (revenueVars.franchiseMarketing) row.push(formatCurrency(year.revenue.franchiseMarketing));
+        if (revenueVars.adoption) row.push(formatCurrency(year.revenue.adoption));
+        if (revenueVars.kits) row.push(formatCurrency(year.revenue.kits));
+        if (revenueVars.totalRevenue) row.push(formatCurrency(year.revenue.total));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Costs section
+    if (vars.costs && Object.values(vars.costs).some(Boolean)) {
+      data.push(['COSTS']);
+      const costHeaders = ['Year'];
+      const costVars = vars.costs;
+      if (costVars.technologyOpex) costHeaders.push('Technology OpEx');
+      if (costVars.marketing) costHeaders.push('Marketing');
+      if (costVars.staffCorporate) costHeaders.push('Staff Corporate');
+      if (costVars.staffFlagship) costHeaders.push('Staff Flagship');
+      if (costVars.staffFranchiseSupport) costHeaders.push('Staff Franchise Support');
+      if (costVars.staffAdoptionSupport) costHeaders.push('Staff Adoption Support');
+      if (costVars.facilities) costHeaders.push('Facilities');
+      if (costVars.curriculum) costHeaders.push('Curriculum');
+      if (costVars.teacherTraining) costHeaders.push('Teacher Training');
+      if (costVars.totalCosts) costHeaders.push('Total Costs');
+      data.push(costHeaders);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (costVars.technologyOpex) row.push(formatCurrency(year.costs.technologyOpex));
+        if (costVars.marketing) row.push(formatCurrency(year.costs.marketing));
+        if (costVars.staffCorporate) row.push(formatCurrency(year.costs.staffCorporate));
+        if (costVars.staffFlagship) row.push(formatCurrency(year.costs.staffFlagship));
+        if (costVars.staffFranchiseSupport) row.push(formatCurrency(year.costs.staffFranchiseSupport));
+        if (costVars.staffAdoptionSupport) row.push(formatCurrency(year.costs.staffAdoptionSupport));
+        if (costVars.facilities) row.push(formatCurrency(year.costs.facilities));
+        if (costVars.curriculum) row.push(formatCurrency(year.costs.curriculum));
+        if (costVars.teacherTraining) row.push(formatCurrency(year.costs.teacherTraining));
+        if (costVars.totalCosts) row.push(formatCurrency(year.costs.total));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Profitability section
+    if (vars.profitability && Object.values(vars.profitability).some(Boolean)) {
+      data.push(['PROFITABILITY']);
+      const profitHeaders = ['Year'];
+      const profitVars = vars.profitability;
+      if (profitVars.ebitda) profitHeaders.push('EBITDA');
+      if (profitVars.ebitdaMargin) profitHeaders.push('EBITDA Margin %');
+      if (profitVars.taxes) profitHeaders.push('Taxes');
+      if (profitVars.netIncome) profitHeaders.push('Net Income');
+      if (profitVars.capex) profitHeaders.push('CAPEX');
+      if (profitVars.freeCashFlow) profitHeaders.push('Free Cash Flow');
+      data.push(profitHeaders);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (profitVars.ebitda) row.push(formatCurrency(year.ebitda));
+        if (profitVars.ebitdaMargin) row.push(`${(year.ebitdaMargin * 100).toFixed(1)}%`);
+        if (profitVars.taxes) row.push(formatCurrency(year.taxes));
+        if (profitVars.netIncome) row.push(formatCurrency(year.netIncome));
+        if (profitVars.capex) row.push(formatCurrency(year.capex));
+        if (profitVars.freeCashFlow) row.push(formatCurrency(year.freeCashFlow));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Students section
+    if (vars.students && Object.values(vars.students).some(Boolean)) {
+      data.push(['STUDENTS']);
+      const studentHeaders = ['Year'];
+      const studentVars = vars.students;
+      if (studentVars.flagshipStudents) studentHeaders.push('Flagship Students');
+      if (studentVars.franchiseStudents) studentHeaders.push('Franchise Students');
+      if (studentVars.adoptionStudents) studentHeaders.push('Adoption Students');
+      if (studentVars.totalStudents) studentHeaders.push('Total Students');
+      if (studentVars.franchiseCount) studentHeaders.push('Franchise Count');
+      data.push(studentHeaders);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (studentVars.flagshipStudents) row.push(year.students.flagship);
+        if (studentVars.franchiseStudents) row.push(year.students.franchise);
+        if (studentVars.adoptionStudents) row.push(year.students.adoption);
+        if (studentVars.totalStudents) row.push(year.students.total);
+        if (studentVars.franchiseCount) row.push(year.franchiseCount);
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Pricing section
+    if (vars.pricing && Object.values(vars.pricing).some(Boolean)) {
+      data.push(['PRICING']);
+      const pricingHeaders = ['Year'];
+      const pricingVars = vars.pricing;
+      if (pricingVars.tuition) pricingHeaders.push('Monthly Tuition');
+      if (pricingVars.adoptionFee) pricingHeaders.push('Adoption Fee');
+      if (pricingVars.kitCost) pricingHeaders.push('Kit Cost');
+      data.push(pricingHeaders);
+
+      projection.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (pricingVars.tuition) row.push(Math.round(year.pricing.tuition));
+        if (pricingVars.adoptionFee) row.push(Math.round(year.pricing.adoptionFee));
+        if (pricingVars.kitCost) row.push(Math.round(year.pricing.kitCost));
+        data.push(row);
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = Array(15).fill({ wch: 18 });
+    XLSX.utils.book_append_sheet(wb, ws, 'Private Plan');
+  }
+
+  // Generate Public Partnerships Custom Sheet
+  if (categories.publicPartnerships && variables.publicPartnerships && publicModelData?.length > 0) {
+    const data = [
+      ['KORA SCHOOL - PUBLIC PARTNERSHIPS CUSTOM REPORT'],
+      [`Scenario: ${currentPublicScenario.toUpperCase()}`],
+      [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
+      [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
+      []
+    ];
+
+    const filteredPublic = publicModelData.filter(y => y.year >= yearFrom && y.year <= yearTo);
+    const vars = variables.publicPartnerships;
+
+    // Metrics section
+    if (vars.metrics && Object.values(vars.metrics).some(Boolean)) {
+      data.push(['KEY METRICS']);
+      const metricHeaders = ['Year'];
+      const metricVars = vars.metrics;
+      if (metricVars.students) metricHeaders.push('Students');
+      if (metricVars.municipalities) metricHeaders.push('Municipalities');
+      if (metricVars.marketPenetration) metricHeaders.push('Market Penetration %');
+      data.push(metricHeaders);
+
+      filteredPublic.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (metricVars.students) row.push(year.students);
+        if (metricVars.municipalities) row.push(year.municipalities);
+        if (metricVars.marketPenetration) row.push(`${((year.students / 46700000) * 100).toFixed(2)}%`);
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Revenue section
+    if (vars.revenue && Object.values(vars.revenue).some(Boolean)) {
+      data.push(['REVENUE']);
+      const revenueHeaders = ['Year'];
+      const revenueVars = vars.revenue;
+      if (revenueVars.monthly) revenueHeaders.push('Monthly License Fees');
+      if (revenueVars.setup) revenueHeaders.push('Setup Revenue');
+      if (revenueVars.technology) revenueHeaders.push('Technology Revenue');
+      if (revenueVars.training) revenueHeaders.push('Training Revenue');
+      if (revenueVars.totalRevenue) revenueHeaders.push('Total Revenue');
+      data.push(revenueHeaders);
+
+      filteredPublic.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (revenueVars.monthly) row.push(formatCurrency(year.revenue.monthly));
+        if (revenueVars.setup) row.push(formatCurrency(year.revenue.setup));
+        if (revenueVars.technology) row.push(formatCurrency(year.revenue.technology));
+        if (revenueVars.training) row.push(formatCurrency(year.revenue.training));
+        if (revenueVars.totalRevenue) row.push(formatCurrency(year.revenue.total));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Profitability section
+    if (vars.profitability && Object.values(vars.profitability).some(Boolean)) {
+      data.push(['PROFITABILITY']);
+      const profitHeaders = ['Year'];
+      const profitVars = vars.profitability;
+      if (profitVars.costs) profitHeaders.push('Operating Costs');
+      if (profitVars.ebitda) profitHeaders.push('EBITDA');
+      if (profitVars.margin) profitHeaders.push('EBITDA Margin %');
+      data.push(profitHeaders);
+
+      filteredPublic.forEach(year => {
+        const row = [`Year ${year.year}`];
+        if (profitVars.costs) row.push(formatCurrency(year.costs));
+        if (profitVars.ebitda) row.push(formatCurrency(year.ebitda));
+        if (profitVars.margin) row.push(`${(year.margin * 100).toFixed(1)}%`);
+        data.push(row);
+      });
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = Array(10).fill({ wch: 20 });
+    XLSX.utils.book_append_sheet(wb, ws, 'Public Partnerships');
+  }
+
+  // Generate Consolidated Custom Sheet
+  if (categories.consolidated && variables.consolidated) {
+    const data = [
+      ['KORA SCHOOL - CONSOLIDATED CUSTOM REPORT'],
+      [`Private: ${currentScenario.toUpperCase()} | Public: ${currentPublicScenario.toUpperCase()}`],
+      [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
+      [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
+      []
+    ];
+
+    const vars = variables.consolidated?.combined || {};
+
+    if (Object.values(vars).some(Boolean)) {
+      data.push(['CONSOLIDATED METRICS']);
+      const headers = ['Year'];
+      if (vars.privateRevenue) headers.push('Private Revenue');
+      if (vars.publicRevenue) headers.push('Public Revenue');
+      if (vars.totalRevenue) headers.push('Total Revenue');
+      if (vars.privateEbitda) headers.push('Private EBITDA');
+      if (vars.publicEbitda) headers.push('Public EBITDA');
+      if (vars.totalEbitda) headers.push('Total EBITDA');
+      if (vars.privateStudents) headers.push('Private Students');
+      if (vars.publicStudents) headers.push('Public Students');
+      if (vars.totalStudents) headers.push('Total Students');
+      data.push(headers);
+
+      for (let i = yearFrom; i <= yearTo; i++) {
+        const privateYear = financialData.projection[i] || { revenue: { total: 0 }, ebitda: 0, students: { total: 0 } };
+        const publicYear = publicModelData?.[i - 1] || { revenue: { total: 0 }, ebitda: 0, students: 0 };
+
+        const row = [`Year ${i}`];
+        if (vars.privateRevenue) row.push(formatCurrency(privateYear.revenue.total));
+        if (vars.publicRevenue) row.push(formatCurrency(publicYear.revenue.total));
+        if (vars.totalRevenue) row.push(formatCurrency(privateYear.revenue.total + publicYear.revenue.total));
+        if (vars.privateEbitda) row.push(formatCurrency(privateYear.ebitda));
+        if (vars.publicEbitda) row.push(formatCurrency(publicYear.ebitda));
+        if (vars.totalEbitda) row.push(formatCurrency(privateYear.ebitda + publicYear.ebitda));
+        if (vars.privateStudents) row.push(privateYear.students.total);
+        if (vars.publicStudents) row.push(publicYear.students);
+        if (vars.totalStudents) row.push(privateYear.students.total + publicYear.students);
+        data.push(row);
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = Array(12).fill({ wch: 20 });
+    XLSX.utils.book_append_sheet(wb, ws, 'Consolidated');
+  }
+
+  // Generate Cash Flow Custom Sheet
+  if (categories.cashFlow && variables.cashFlow) {
+    const data = [
+      ['KORA SCHOOL - CASH FLOW CUSTOM REPORT'],
+      [`Private: ${currentScenario.toUpperCase()} | Public: ${currentPublicScenario.toUpperCase()}`],
+      [`Year Range: Year ${yearFrom} to Year ${yearTo}`],
+      [`Generated: ${new Date().toLocaleDateString('pt-BR')}`],
+      []
+    ];
+
+    const vars = variables.cashFlow;
+
+    // Private Cash Flow
+    if (vars.privateCashFlow && Object.values(vars.privateCashFlow).some(Boolean)) {
+      data.push(['PRIVATE SECTOR CASH FLOW']);
+      const headers = ['Year'];
+      const pvars = vars.privateCashFlow;
+      if (pvars.privateRevenue) headers.push('Revenue');
+      if (pvars.privateCosts) headers.push('Operating Costs');
+      if (pvars.privateEbitda) headers.push('EBITDA');
+      if (pvars.privateTaxes) headers.push('Taxes');
+      if (pvars.privateNetIncome) headers.push('Net Income');
+      if (pvars.privateCapex) headers.push('CAPEX');
+      if (pvars.privateFcf) headers.push('Free Cash Flow');
+      if (pvars.privateCumulativeFcf) headers.push('Cumulative FCF');
+      data.push(headers);
+
+      let cumulativeFCF = 0;
+      for (let i = yearFrom; i <= yearTo; i++) {
+        const year = financialData.projection[i] || {};
+        cumulativeFCF += year.freeCashFlow || 0;
+        const row = [`Year ${i}`];
+        if (pvars.privateRevenue) row.push(formatCurrency(year.revenue?.total || 0));
+        if (pvars.privateCosts) row.push(formatCurrency(year.costs?.total || 0));
+        if (pvars.privateEbitda) row.push(formatCurrency(year.ebitda || 0));
+        if (pvars.privateTaxes) row.push(formatCurrency(year.taxes || 0));
+        if (pvars.privateNetIncome) row.push(formatCurrency(year.netIncome || 0));
+        if (pvars.privateCapex) row.push(formatCurrency(year.capex || 0));
+        if (pvars.privateFcf) row.push(formatCurrency(year.freeCashFlow || 0));
+        if (pvars.privateCumulativeFcf) row.push(formatCurrency(cumulativeFCF));
+        data.push(row);
+      }
+      data.push([]);
+    }
+
+    // Public Cash Flow
+    if (vars.publicCashFlow && Object.values(vars.publicCashFlow).some(Boolean) && publicModelData?.length > 0) {
+      data.push(['PUBLIC SECTOR CASH FLOW']);
+      const headers = ['Year'];
+      const pubvars = vars.publicCashFlow;
+      if (pubvars.publicRevenue) headers.push('Revenue');
+      if (pubvars.publicCosts) headers.push('Operating Costs');
+      if (pubvars.publicEbitda) headers.push('EBITDA');
+      if (pubvars.publicNetIncome) headers.push('Net Income');
+      if (pubvars.publicCumulative) headers.push('Cumulative');
+      data.push(headers);
+
+      let publicCumulative = 0;
+      publicModelData.filter(y => y.year >= yearFrom && y.year <= yearTo).forEach(year => {
+        const netIncome = year.ebitda * 0.75;
+        publicCumulative += netIncome;
+        const row = [`Year ${year.year}`];
+        if (pubvars.publicRevenue) row.push(formatCurrency(year.revenue.total));
+        if (pubvars.publicCosts) row.push(formatCurrency(year.costs));
+        if (pubvars.publicEbitda) row.push(formatCurrency(year.ebitda));
+        if (pubvars.publicNetIncome) row.push(formatCurrency(netIncome));
+        if (pubvars.publicCumulative) row.push(formatCurrency(publicCumulative));
+        data.push(row);
+      });
+      data.push([]);
+    }
+
+    // Combined Cash Flow
+    if (vars.combined && Object.values(vars.combined).some(Boolean)) {
+      data.push(['COMBINED CASH FLOW']);
+      const headers = ['Year'];
+      const combvars = vars.combined;
+      if (combvars.combinedCashFlow) headers.push('Combined Cash Flow');
+      if (combvars.cumulativeCombined) headers.push('Cumulative Combined');
+      data.push(headers);
+
+      let combinedCumulative = 0;
+      for (let i = yearFrom; i <= yearTo; i++) {
+        const privateYear = financialData.projection[i] || { freeCashFlow: 0 };
+        const publicYear = publicModelData?.[i - 1];
+        const publicNetIncome = publicYear ? publicYear.ebitda * 0.75 : 0;
+        const combined = privateYear.freeCashFlow + publicNetIncome;
+        combinedCumulative += combined;
+
+        const row = [`Year ${i}`];
+        if (combvars.combinedCashFlow) row.push(formatCurrency(combined));
+        if (combvars.cumulativeCombined) row.push(formatCurrency(combinedCumulative));
+        data.push(row);
+      }
+      data.push([]);
+    }
+
+    // Key Metrics
+    if (vars.keyMetrics && Object.values(vars.keyMetrics).some(Boolean)) {
+      data.push(['KEY METRICS']);
+      const kvars = vars.keyMetrics;
+      if (kvars.irr) data.push(['IRR', `${(financialData.summary.irr * 100).toFixed(1)}%`]);
+      if (kvars.npv) data.push(['NPV', formatCurrency(financialData.summary.npv)]);
+      if (kvars.paybackPeriod) data.push(['Payback Period', `${financialData.summary.paybackPeriod} years`]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = Array(10).fill({ wch: 20 });
+    XLSX.utils.book_append_sheet(wb, ws, 'Cash Flow');
+  }
+
+  // Generate filename
+  const date = new Date().toISOString().split('T')[0];
+  const filename = `Kora_School_Custom_Report_Y${yearFrom}-Y${yearTo}_${date}.xlsx`;
+
+  // Write and download
+  XLSX.writeFile(wb, filename);
+
+  return filename;
+};
+
 export default exportFinancialPlanToExcel;

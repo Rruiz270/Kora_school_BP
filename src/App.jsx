@@ -3,12 +3,12 @@ import {
   LayoutDashboard, Calendar, Users, ListTodo, AlertTriangle, Target,
   DollarSign, TrendingUp, BarChart3, Calculator, Presentation, Settings,
   Building2, ChevronLeft, ChevronRight, Layers, PieChart, FileSpreadsheet,
-  Wallet, RotateCcw, Download
+  Wallet, RotateCcw, Download, FileText
 } from 'lucide-react';
 
 // Financial Model
 import { FinancialModel, DEFAULT_PARAMETERS, SCENARIO_PRESETS } from './utils/financialModel';
-import { exportFinancialPlanToExcel } from './utils/excelExport';
+import { exportFinancialPlanToExcel, generateCustomReport } from './utils/excelExport';
 
 // Context Provider for Launch Control
 import { ProjectProvider, useProject } from './context/ProjectContext';
@@ -34,6 +34,7 @@ import PublicPartnerships from './components/financial/PublicPartnerships';
 
 // Shared Components
 import ErrorBoundary from './components/shared/ErrorBoundary';
+import ReportBuilder from './components/shared/ReportBuilder';
 
 // Public Sector Scenario Presets
 const PUBLIC_SCENARIO_PRESETS = {
@@ -393,6 +394,7 @@ const AppContentWithContext = () => {
 
   const [activeView, setActiveView] = useState('unified-dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showReportBuilder, setShowReportBuilder] = useState(false);
 
   // Private sector state
   const [parameters, setParameters] = useState(DEFAULT_PARAMETERS);
@@ -461,6 +463,23 @@ const AppContentWithContext = () => {
     } catch (error) {
       console.error('Export failed:', error);
       alert('Failed to export. Please try again.');
+    }
+  };
+
+  const handleGenerateCustomReport = (reportConfig) => {
+    try {
+      const filename = generateCustomReport(
+        financialData,
+        parameters,
+        currentScenario,
+        publicModelData,
+        currentPublicScenario,
+        reportConfig
+      );
+      console.log(`Custom report exported to: ${filename}`);
+    } catch (error) {
+      console.error('Custom report export failed:', error);
+      alert('Failed to generate custom report. Please try again.');
     }
   };
 
@@ -618,12 +637,20 @@ const AppContentWithContext = () => {
         {!sidebarCollapsed && (
           <div className="p-4 border-b border-gray-200 space-y-2">
             <button
+              onClick={() => setShowReportBuilder(true)}
+              className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              title="Build custom report with date range and variable selection"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Custom Reports</span>
+            </button>
+            <button
               onClick={handleExportToExcel}
               className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-              title="Export financial plan to Excel"
+              title="Export full financial plan to Excel"
             >
               <Download className="w-4 h-4" />
-              <span>Export to Excel</span>
+              <span>Export All</span>
             </button>
             <button
               onClick={resetAllToDefault}
@@ -699,6 +726,13 @@ const AppContentWithContext = () => {
           </ErrorBoundary>
         </div>
       </div>
+
+      {/* Report Builder Modal */}
+      <ReportBuilder
+        isOpen={showReportBuilder}
+        onClose={() => setShowReportBuilder(false)}
+        onGenerateReport={handleGenerateCustomReport}
+      />
     </div>
   );
 };
